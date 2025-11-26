@@ -1,7 +1,4 @@
-import os
-from config import CLASS_NAMES, KERAS_MODEL_PATH, WEIGHTS_PATH, INPUT_SHAPE, NUM_CLASSES, ACTIVE_MODEL
-from tensorflow.keras.models import load_model
-from models.custom_layers import CAR_CFL_Layer, squash
+from config import WEIGHTS_PATH, INPUT_SHAPE, NUM_CLASSES, ACTIVE_MODEL
 from models.custom_xception import build_custom_xception
 
 model = None
