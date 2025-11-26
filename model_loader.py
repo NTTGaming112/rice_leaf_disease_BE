@@ -8,16 +8,7 @@ model = None
 
 def load_model_from_config():
     global model
-    if ACTIVE_MODEL == "capsnet":
-        if os.path.exists(KERAS_MODEL_PATH):
-            try:
-                model = load_model(KERAS_MODEL_PATH, custom_objects={"CAR_CFL_Layer": CAR_CFL_Layer, "squash": squash})
-                return
-            except Exception:
-                pass
-        model = build_custom_xception(INPUT_SHAPE, NUM_CLASSES)
-        model.load_weights(WEIGHTS_PATH)
-    elif ACTIVE_MODEL == "custom_xception":
+    if ACTIVE_MODEL == "custom_xception":
         model = build_custom_xception(INPUT_SHAPE, NUM_CLASSES)
         model.load_weights(WEIGHTS_PATH)
     else:
