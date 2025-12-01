@@ -1,5 +1,5 @@
 # Cấu hình cho backend
-CLASS_NAMES = ['Bacterial Leaf Blight', 'Brown Spot', 'Healthy Rice Leaf', 'Leaf Blast', 'Leaf scald', 'Sheath Blight']
+CLASS_NAMES = ['N', 'P', 'K']
 INPUT_SHAPE = (256, 256, 3)
 NUM_CLASSES = len(CLASS_NAMES)
 
