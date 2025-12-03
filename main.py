@@ -12,7 +12,7 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import os
 from config import CLASS_NAMES
-from inference_utils import preprocess_image_for_model
+from model_loader import get_all_models
 
 app = FastAPI()
 load_dotenv(".env.local")
@@ -27,15 +27,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class MockModel:
-    def predict(self, input_array):
-        return np.random.rand(1, 3)
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    if "X-Content-Type-Options" not in response.headers:
+        response.headers["X-Content-Type-Options"] = "nosniff"
+    if "X-XSS-Protection" not in response.headers:
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+    return response
 
-models = {
-    "cnn": MockModel(),
-    "vit": MockModel(),
-    "xception": MockModel()
-}
+print("Loading models...")
+models = get_all_models()
+print(f"Loaded {len(models)} models: {list(models.keys())}")
 
 def generate_advice(label_name: str, confidence: float, probs: list) -> str:
     prompt = (
@@ -75,11 +78,15 @@ def is_image_file(filename: str) -> bool:
 
 @app.get("/models")
 async def get_models():
-    models_list = [
-        {"key": "cnn", "name": "Convolutional Neural Network (CNN)"},
-        {"key": "vit", "name": "Vision Transformer (ViT)"},
-        {"key": "xception", "name": "Xception"}
-    ]
+    models_list = []
+    if 'xception' in models:
+        models_list.append({"key": "xception", "name": "Xception"})
+    if 'resnet50' in models:
+        models_list.append({"key": "resnet50", "name": "ResNet50"})
+    if 'efficientnet' in models:
+        models_list.append({"key": "efficientnet", "name": "EfficientNetB0"})
+    if 'mobilenet' in models:
+        models_list.append({"key": "mobilenet", "name": "MobileNetV3"})
     return models_list
 
 @app.post("/predict-image/{model_key}")
@@ -93,8 +100,7 @@ async def predict_image(model_key: str, file: UploadFile = File(...)):
         # Convert image to base64 for storage
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         
-        input_array = preprocess_image_for_model(image_bytes)
-        preds = selected_model.predict(input_array)
+        preds = selected_model.predict(image_bytes)
         
         probs = preds[0]
         label_idx = int(np.argmax(probs))
@@ -142,36 +148,44 @@ async def predict_batch_zip(model_key: str, file: UploadFile = File(...)):
             if not image_files:
                 raise HTTPException(status_code=400, detail="No valid images found in ZIP file")
 
+            images_data = []
             for filename in image_files:
                 try:
                     with zip_ref.open(filename) as img_file:
                         img_bytes = img_file.read()
-                        # Convert image to base64 for storage
-                        image_base64 = base64.b64encode(img_bytes).decode('utf-8')
-                        
-                        input_array = preprocess_image_for_model(img_bytes)
-                        
-                        preds = selected_model.predict(input_array)
-                        
-                        probs = preds[0]
-                        label_idx = int(np.argmax(probs))
-                        confidence = float(np.max(probs))
-                        label_name = CLASS_NAMES[label_idx] if label_idx < len(CLASS_NAMES) else "Unknown"
-                        advice = generate_advice(label_name, confidence, probs.tolist())
-                        result = {
-                            "label": label_idx,
-                            "fileName": filename,
-                            "label_name": label_name,
-                            "confidence": confidence,
-                            "probs": probs.tolist(),
-                            "advice": advice,
-                            "image_data": image_base64
-                        }
-                        save_prediction_to_db(result)                        
-                        results.append(result)
-                        
+                        images_data.append({
+                            "filename": filename,
+                            "bytes": img_bytes,
+                            "base64": base64.b64encode(img_bytes).decode('utf-8')
+                        })
                 except Exception as e:
-                    raise HTTPException(status_code=500, detail=f"Error processing file {filename}: {str(e)}")
+                    raise HTTPException(status_code=500, detail=f"Error reading file {filename}: {str(e)}")
+            
+            batch_preds = []
+            for img_data in images_data:
+                pred = selected_model.predict(img_data["bytes"])
+                batch_preds.append(pred[0])
+            
+            batch_preds = np.array(batch_preds)
+            
+            for i, img_data in enumerate(images_data):
+                probs = batch_preds[i]
+                label_idx = int(np.argmax(probs))
+                confidence = float(np.max(probs))
+                label_name = CLASS_NAMES[label_idx] if label_idx < len(CLASS_NAMES) else "Unknown"
+                advice = generate_advice(label_name, confidence, probs.tolist())
+                
+                result = {
+                    "label": label_idx,
+                    "fileName": img_data["filename"],
+                    "label_name": label_name,
+                    "confidence": confidence,
+                    "probs": probs.tolist(),
+                    "advice": advice,
+                    "image_data": img_data["base64"]
+                }
+                save_prediction_to_db(result)
+                results.append(result)
                             
         return results
 

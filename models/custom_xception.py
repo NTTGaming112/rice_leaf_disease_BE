@@ -1,38 +1,71 @@
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers, models
+import torch
+import torch.nn as nn
 
-# --- Custom Xception ---
-def separable_conv_block(x, filters, kernel_size=3, strides=2):
-    residual = layers.Conv2D(filters, (1, 1), strides=strides, padding='same')(x)
-    main_path = layers.ReLU()(x)
-    main_path = layers.SeparableConv2D(filters, (kernel_size, kernel_size), padding='same')(main_path)
-    main_path = layers.BatchNormalization()(main_path)
-    main_path = layers.ReLU()(main_path)
-    main_path = layers.SeparableConv2D(filters, (kernel_size, kernel_size), padding='same')(main_path)
-    main_path = layers.BatchNormalization()(main_path)
-    main_path = layers.MaxPooling2D((3, 3), strides=strides, padding='same')(main_path)
-    output = layers.Add()([residual, main_path])
-    return output
+class SeparableConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1):
+        super().__init__()
+        self.depthwise = nn.Conv2d(in_channels, in_channels, kernel_size, stride, padding,
+                                   groups=in_channels, bias=False)
+        self.pointwise = nn.Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
 
-def build_custom_xception(input_shape, num_classes):
-    inputs = layers.Input(shape=input_shape, name='input_layer')
-    augmentation = models.Sequential([
-        layers.RandomFlip("horizontal_and_vertical"),
-        layers.RandomRotation(0.2),
-        layers.RandomZoom(0.2)
-    ], name='data_augmentation')
-    x = augmentation(inputs)
-    x = layers.Conv2D(64, (3, 3), strides=2, padding='same', name='entry_conv')(x)
-    x = layers.BatchNormalization(name='entry_bn')(x)
-    x = layers.ReLU(name='entry_relu')(x)
-    x = separable_conv_block(x, filters=128, kernel_size=3, strides=2)
-    x = separable_conv_block(x, filters=256, kernel_size=3, strides=2)
-    x = separable_conv_block(x, filters=512, kernel_size=3, strides=2)
-    x = layers.SeparableConv2D(1024, (3, 3), padding='same', name='exit_sepconv')(x)
-    x = layers.BatchNormalization(name='exit_bn')(x)
-    x = layers.ReLU(name='exit_relu')(x)
-    x = layers.GlobalAveragePooling2D(name='global_avg_pool')(x)
-    outputs = layers.Dense(num_classes, activation='softmax', name='output_layer')(x)
-    model = models.Model(inputs=inputs, outputs=outputs, name='Custom_Xception_1.2M')
-    return model
+    def forward(self, x):
+        return self.pointwise(self.depthwise(x))
+
+class SeparableConvBlock(nn.Module):
+    def __init__(self, in_channels, out_channels, stride=2):
+        super().__init__()
+
+        self.residual = nn.Conv2d(in_channels, out_channels, 1, stride, bias=False)
+        self.bn_res = nn.BatchNorm2d(out_channels)
+
+        self.relu1 = nn.ReLU(inplace=False)
+        self.sep1 = SeparableConv2d(in_channels, out_channels)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+
+        self.relu2 = nn.ReLU(inplace=False)
+        self.sep2 = SeparableConv2d(out_channels, out_channels)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+
+        self.pool = nn.MaxPool2d(3, stride=stride, padding=1)
+
+    def forward(self, x):
+        res = self.bn_res(self.residual(x))
+
+        out = self.relu1(x)
+        out = self.bn1(self.sep1(out))
+        out = self.relu2(out)
+        out = self.bn2(self.sep2(out))
+
+        out = self.pool(out)
+        return out + res
+
+class MiniXception(nn.Module):
+    def __init__(self, num_classes=3):
+        super().__init__()
+
+        self.entry = nn.Sequential(
+            nn.Conv2d(3, 64, 3, stride=2, padding=1, bias=False),
+            nn.BatchNorm2d(64),
+            nn.ReLU(inplace=False)
+        )
+
+        self.block1 = SeparableConvBlock(64, 128)
+        self.block2 = SeparableConvBlock(128, 256)
+        self.block3 = SeparableConvBlock(256, 512)
+
+        self.exit_sep = SeparableConv2d(512, 1024)
+        self.exit_bn = nn.BatchNorm2d(1024)
+        self.exit_relu = nn.ReLU(inplace=False)
+
+        self.global_pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Linear(1024, num_classes)
+
+    def forward(self, x):
+        x = self.entry(x)
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+        x = self.exit_relu(self.exit_bn(self.exit_sep(x)))
+        x = self.global_pool(x)
+        x = torch.flatten(x, 1)
+        return self.fc(x)

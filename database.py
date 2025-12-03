@@ -20,10 +20,9 @@ class PredictionHistory(Base):
     label = Column(Integer, nullable=False)
     label_name = Column(String, nullable=False)
     confidence = Column(Float, nullable=False)
-    probs = Column(String)  # Lưu JSON dạng string
-    advice = Column(String)  # Lưu lời khuyên dưới dạng text
-    image_data = Column(Text)  # Lưu ảnh dạng base64
+    probs = Column(String)  
+    advice = Column(String)  
+    image_data = Column(Text)  
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-# Tạo bảng
 Base.metadata.create_all(bind=engine)
