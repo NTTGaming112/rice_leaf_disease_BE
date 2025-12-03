@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, JSON, Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import datetime
+from datetime import datetime
 from dotenv import load_dotenv
 import os
 
@@ -23,6 +23,6 @@ class PredictionHistory(Base):
     probs = Column(String)  
     advice = Column(String)  
     image_data = Column(Text)  
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now)
 
 Base.metadata.create_all(bind=engine)
