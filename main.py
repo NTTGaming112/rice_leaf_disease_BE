@@ -42,10 +42,15 @@ print(f"Loaded {len(models)} models: {list(models.keys())}")
 
 def generate_advice(label_name: str, confidence: float, probs: list) -> str:
     prompt = (
-        f"The rice leaf analysis indicates: {label_name}. "
+        "You are an agricultural assistant specialized in diagnosing nutrient deficiencies "
+        "in rice leaves, including Nitrogen (N), Phosphorus (P), and Potassium (K) deficiency. "
+        f"Detected condition: {label_name}. "
         f"Model confidence: {confidence:.2f}. "
         f"Class probabilities: {probs}. "
-        "Provide brief, actionable agricultural advice for this result. Return plain text only."
+        "Provide a brief, specific, actionable recommendation for rice farmers. "
+        "Include only practical steps such as fertilizer adjustment, monitoring, and prevention. "
+        "Do NOT include greeting, disclaimers, or formatting. "
+        "Return plain text only (2–3 concise sentences)."
     )
     try:
         model = genai.GenerativeModel("gemini-2.5-flash")
