@@ -59,7 +59,7 @@ def generate_advice(label_name: str, confidence: float, probs: list) -> str:
     except Exception as e:
         return f"Could not retrieve advice at this time. Error: {str(e)}"
     
-def save_prediction_to_db(result: dict):
+def save_prediction_to_db(result: dict, threshold: float):
     db = SessionLocal()
     try:
         record = PredictionHistory(
@@ -67,6 +67,7 @@ def save_prediction_to_db(result: dict):
             label=result["label"],
             label_name=result["label_name"],
             confidence=result["confidence"],
+            threshold=threshold,
             probs=json.dumps(result.get("probs", [])),
             advice=result.get("advice", ""),
             image_data=result.get("image_data", "")
@@ -95,14 +96,13 @@ async def get_models():
     return models_list
 
 @app.post("/predict-image/{model_key}")
-async def predict_image(model_key: str, file: UploadFile = File(...)):
+async def predict_image(model_key: str, file: UploadFile = File(...), threshold: float = 0.8):
     if model_key not in models:
         raise HTTPException(status_code=404, detail=f"Model '{model_key}' not found")
     
     selected_model = models[model_key]
     try:
         image_bytes = await file.read()
-        # Convert image to base64 for storage
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         
         preds = selected_model.predict(image_bytes)
@@ -111,7 +111,8 @@ async def predict_image(model_key: str, file: UploadFile = File(...)):
         label_idx = int(np.argmax(probs))
         confidence = float(np.max(probs))
         label_name = CLASS_NAMES[label_idx] if label_idx < len(CLASS_NAMES) else "Unknown"
-        advice = generate_advice(label_name, confidence, probs.tolist())
+        
+        advice = generate_advice(label_name, confidence, probs.tolist()) if confidence >= threshold else ""
 
         result = {
             "label": label_idx,
@@ -120,16 +121,18 @@ async def predict_image(model_key: str, file: UploadFile = File(...)):
             "confidence": confidence,
             "probs": probs.tolist(),
             "advice": advice,
-            "image_data": image_base64
+            "image_data": image_base64,
+            "threshold": threshold
         }
-        save_prediction_to_db(result)
+        
+        save_prediction_to_db(result, threshold)
 
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/predict-batch-zip/{model_key}")
-async def predict_batch_zip(model_key: str, file: UploadFile = File(...)):
+async def predict_batch_zip(model_key: str, file: UploadFile = File(...), threshold: float = 0.8):
     """Xử lý file ZIP chứa nhiều ảnh"""
     
     if model_key not in models:
@@ -178,7 +181,8 @@ async def predict_batch_zip(model_key: str, file: UploadFile = File(...)):
                 label_idx = int(np.argmax(probs))
                 confidence = float(np.max(probs))
                 label_name = CLASS_NAMES[label_idx] if label_idx < len(CLASS_NAMES) else "Unknown"
-                advice = generate_advice(label_name, confidence, probs.tolist())
+                
+                advice = generate_advice(label_name, confidence, probs.tolist()) if confidence >= threshold else ""
                 
                 result = {
                     "label": label_idx,
@@ -187,9 +191,12 @@ async def predict_batch_zip(model_key: str, file: UploadFile = File(...)):
                     "confidence": confidence,
                     "probs": probs.tolist(),
                     "advice": advice,
-                    "image_data": img_data["base64"]
+                    "image_data": img_data["base64"],
+                    "threshold": threshold
                 }
-                save_prediction_to_db(result)
+                
+                save_prediction_to_db(result, threshold)
+                    
                 results.append(result)
                             
         return results
@@ -206,16 +213,34 @@ async def get_history():
         records = db.query(PredictionHistory).order_by(PredictionHistory.created_at.desc()).all()
         return [
             {
+                "id": r.id,
                 "fileName": r.file_name,
-                "label": r.label,
-                "label_name": r.label_name,
+                "label": r.label if r.confidence >= r.threshold else -1,
+                "label_name": r.label_name if r.confidence >= r.threshold else "Uncertain",
                 "confidence": r.confidence,
+                "threshold": r.threshold,
                 "probs": json.loads(r.probs),
                 "advice": r.advice,
                 "image_data": r.image_data,
                 "created_at": r.created_at.isoformat()
             } for r in records
         ]
+    finally:
+        db.close()
+
+@app.delete("/history/{record_id}")
+async def delete_history(record_id: int):
+    db = SessionLocal()
+    try:
+        record = db.query(PredictionHistory).filter(PredictionHistory.id == record_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Record not found")
+        db.delete(record)
+        db.commit()
+        return {"message": "Record deleted successfully"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete record: {str(e)}")
     finally:
         db.close()
 

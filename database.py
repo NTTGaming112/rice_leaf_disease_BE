@@ -20,6 +20,7 @@ class PredictionHistory(Base):
     label = Column(Integer, nullable=False)
     label_name = Column(String, nullable=False)
     confidence = Column(Float, nullable=False)
+    threshold = Column(Float, nullable=False)
     probs = Column(String)  
     advice = Column(String)  
     image_data = Column(Text)  
