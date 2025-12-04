@@ -207,10 +207,16 @@ async def predict_batch_zip(model_key: str, file: UploadFile = File(...), thresh
         raise HTTPException(status_code=500, detail=f"Batch processing failed: {str(e)}")
 
 @app.get("/history")
-async def get_history():
+async def get_history(limit: int = 50, offset: int = 0):
+    """Lấy lịch sử không có ảnh để tiết kiệm RAM"""
     db = SessionLocal()
     try:
-        records = db.query(PredictionHistory).order_by(PredictionHistory.created_at.desc()).all()
+        limit = min(limit, 200)  # Giới hạn tối đa 200 records
+        records = db.query(PredictionHistory)\
+            .order_by(PredictionHistory.created_at.desc())\
+            .limit(limit)\
+            .offset(offset)\
+            .all()
         return [
             {
                 "id": r.id,
@@ -221,10 +227,21 @@ async def get_history():
                 "threshold": r.threshold,
                 "probs": json.loads(r.probs),
                 "advice": r.advice,
-                "image_data": r.image_data,
                 "created_at": r.created_at.isoformat()
             } for r in records
         ]
+    finally:
+        db.close()
+
+@app.get("/history/{record_id}/image")
+async def get_history_image(record_id: int):
+    """Lấy ảnh của một record cụ thể"""
+    db = SessionLocal()
+    try:
+        record = db.query(PredictionHistory).filter(PredictionHistory.id == record_id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Record not found")
+        return {"image_data": record.image_data}
     finally:
         db.close()
 
