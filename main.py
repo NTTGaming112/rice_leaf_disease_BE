@@ -59,7 +59,7 @@ def generate_advice(label_name: str, confidence: float, probs: list) -> str:
     except Exception as e:
         return f"Could not retrieve advice at this time. Error: {str(e)}"
     
-def save_prediction_to_db(result: dict, threshold: float):
+def save_prediction_to_db(result: dict, threshold: float, model_key: str = None):
     db = SessionLocal()
     try:
         record = PredictionHistory(
@@ -70,7 +70,8 @@ def save_prediction_to_db(result: dict, threshold: float):
             threshold=threshold,
             probs=json.dumps(result.get("probs", [])),
             advice=result.get("advice", ""),
-            image_data=result.get("image_data", "")
+            image_data=result.get("image_data", ""),
+            model_key=model_key
         )
         db.add(record)
         db.commit()
@@ -125,7 +126,7 @@ async def predict_image(model_key: str, file: UploadFile = File(...), threshold:
             "threshold": threshold
         }
         
-        save_prediction_to_db(result, threshold)
+        save_prediction_to_db(result, threshold, model_key)
 
         return result
     except Exception as e:
@@ -195,7 +196,7 @@ async def predict_batch_zip(model_key: str, file: UploadFile = File(...), thresh
                     "threshold": threshold
                 }
                 
-                save_prediction_to_db(result, threshold)
+                save_prediction_to_db(result, threshold, model_key)
                     
                 results.append(result)
                             
@@ -227,6 +228,7 @@ async def get_history(limit: int = 50, offset: int = 0):
                 "threshold": r.threshold,
                 "probs": json.loads(r.probs),
                 "advice": r.advice,
+                "model_key": r.model_key,
                 "created_at": r.created_at.isoformat()
             } for r in records
         ]

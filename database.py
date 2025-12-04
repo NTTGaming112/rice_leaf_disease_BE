@@ -23,7 +23,8 @@ class PredictionHistory(Base):
     threshold = Column(Float, nullable=False)
     probs = Column(String)  
     advice = Column(String)  
-    image_data = Column(Text)  
+    image_data = Column(Text)
+    model_key = Column(String)  # Model đã sử dụng
     created_at = Column(DateTime, default=datetime.now)
 
 Base.metadata.create_all(bind=engine)
