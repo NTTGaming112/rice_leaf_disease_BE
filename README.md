@@ -87,17 +87,29 @@ pip install -r requirements.txt
 
 ### 4. Cấu hình environment variables
 
-Tạo file `.env.local` trong thư mục `be/`:
+Copy file `.env.example` thành `.env.local`:
 
-```env
-GOOGLE_API_KEY=your_google_api_key_here
+```bash
+# Windows
+copy .env.example .env.local
+
+# Linux/Mac
+cp .env.example .env.local
 ```
 
-**Lấy Google API Key:**
+Sau đó chỉnh sửa file `.env.local`
 
-1. Truy cập [Google AI Studio](https://makersuite.google.com/app/apikey)
-2. Tạo API key mới
-3. Copy và paste vào file `.env.local`
+**Cấu hình:**
+
+1. **DATABASE_URL**: Đường dẫn đến SQLite database
+
+   - Mặc định: `sqlite:///./history.db` (tạo file history.db trong thư mục be/)
+   - File sẽ được tự động tạo khi chạy ứng dụng lần đầu
+
+2. **GOOGLE_API_KEY**: API key cho Gemini AI (cung cấp lời khuyên)
+   - Truy cập [Google AI Studio](https://aistudio.google.com/app/apikey)
+   - Tạo API key mới
+   - Copy và paste vào file `.env.local`
 
 ### 5. Download model weights
 
