@@ -190,3 +190,7 @@ Các notebook training được lưu trong thư mục `notebooks/`:
 ## 📝 License
 
 MIT License
+
+## 🔗 Links
+
+- Frontend Repository: [Frontend](https://github.com/NTTGaming112/rice_leaf_disease_fe)
