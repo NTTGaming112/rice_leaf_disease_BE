@@ -39,11 +39,17 @@ class ModelWrapper:
             return probs.cpu().numpy()
 
 def load_xception_model():
-    """Load custom Xception model"""
-    from models.custom_xception import MiniXception
+    """Load Xception GOC model (timm xception)"""
+    try:
+        import timm
+    except ImportError:
+        raise ImportError(
+            "timm is required to load Xception GOC model. "
+            "Install it with: pip install timm"
+        )
     
-    model_path = Path(__file__).resolve().parent / "models" / "best_xception_overall.pth"
-    model = MiniXception(num_classes=3)
+    model_path = Path(__file__).resolve().parent / "models" / "best_xception_goc_overall.pth"
+    model = timm.create_model('legacy_xception', pretrained=False, num_classes=3)
     model.load_state_dict(torch.load(str(model_path), map_location='cpu', weights_only=True))
     
     transform = transforms.Compose([
@@ -55,21 +61,19 @@ def load_xception_model():
     
     return ModelWrapper(model, transform)
 
-def load_resnet50_model():
-    """Load ResNet50 model"""
-    from torchvision.models import resnet50
-    import torch.nn as nn
+def load_minixception_model():
+    """Load MiniXception model"""
+    from models.custom_xception import MiniXception
     
-    model_path = Path(__file__).resolve().parent / "models" / "best_resnet50_overall.pth"
-    model = resnet50(weights=None)
-    model.fc = nn.Linear(model.fc.in_features, 3)
+    model_path = Path(__file__).resolve().parent / "models" / "best_minixception_overall.pth"
+    model = MiniXception(num_classes=3)
     model.load_state_dict(torch.load(str(model_path), map_location='cpu', weights_only=True))
     
     transform = transforms.Compose([
         transforms.Resize((1024, 256)),
         transforms.ToTensor(),
-        transforms.Normalize([0.485, 0.456, 0.406],
-                           [0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                           std=[0.229, 0.224, 0.225]),
     ])
     
     return ModelWrapper(model, transform)
@@ -89,6 +93,23 @@ def load_efficientnet_model():
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406],
                            [0.229, 0.224, 0.225])
+    ])
+    
+    return ModelWrapper(model, transform)
+
+def load_xception_eca_model():
+    """Load XceptionECA model with attention"""
+    from models.custom_xception import XceptionECA
+    
+    model_path = Path(__file__).resolve().parent / "models" / "best_xception_eca.pth"
+    model = XceptionECA(num_classes=3, use_attention=True)
+    model.load_state_dict(torch.load(str(model_path), map_location='cpu', weights_only=True))
+    
+    transform = transforms.Compose([
+        transforms.Resize((1024, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                           std=[0.229, 0.224, 0.225]),
     ])
     
     return ModelWrapper(model, transform)
@@ -118,15 +139,21 @@ def get_all_models():
     models = {}
     try:
         models['xception'] = load_xception_model()
-        print("✓ Loaded Xception model")
+        print("✓ Loaded Xception GOC model")
     except Exception as e:
-        print(f"✗ Failed to load Xception: {e}")
+        print(f"✗ Failed to load Xception GOC: {e}")
     
     try:
-        models['resnet50'] = load_resnet50_model()
-        print("✓ Loaded ResNet50 model")
+        models['minixception'] = load_minixception_model()
+        print("✓ Loaded MiniXception model")
     except Exception as e:
-        print(f"✗ Failed to load ResNet50: {e}")
+        print(f"✗ Failed to load MiniXception: {e}")
+    
+    try:
+        models['xception_eca'] = load_xception_eca_model()
+        print("✓ Loaded XceptionECA model")
+    except Exception as e:
+        print(f"✗ Failed to load XceptionECA: {e}")
     
     try:
         models['efficientnet'] = load_efficientnet_model()

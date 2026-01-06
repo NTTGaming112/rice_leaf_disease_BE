@@ -87,9 +87,11 @@ def is_image_file(filename: str) -> bool:
 async def get_models():
     models_list = []
     if 'xception' in models:
-        models_list.append({"key": "xception", "name": "Xception"})
-    if 'resnet50' in models:
-        models_list.append({"key": "resnet50", "name": "ResNet50"})
+        models_list.append({"key": "xception", "name": "Xception GOC"})
+    if 'minixception' in models:
+        models_list.append({"key": "minixception", "name": "MiniXception"})
+    if 'xception_eca' in models:
+        models_list.append({"key": "xception_eca", "name": "Xception ECA"})
     if 'efficientnet' in models:
         models_list.append({"key": "efficientnet", "name": "EfficientNetB0"})
     if 'mobilenet' in models:
