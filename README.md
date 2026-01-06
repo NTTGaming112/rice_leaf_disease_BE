@@ -8,9 +8,9 @@ Backend API phục vụ việc phát hiện các triệu chứng thiếu chất 
 
 ### Các mô hình được hỗ trợ:
 
-- **Xception GOC** - Xception architecture từ thư viện timm
+- **Xception (base)** - Xception architecture từ thư viện timm
 - **MiniXception** - Lightweight custom Xception architecture
-- **Xception ECA** - Xception với Efficient Channel Attention mechanism
+- **MiniXception ECA** - MiniXception với Efficient Channel Attention mechanism
 - **EfficientNetB0** - EfficientNet-B0 architecture
 - **MobileNetV3** - MobileNet-V3-Large architecture
 

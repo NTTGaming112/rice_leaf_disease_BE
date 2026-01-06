@@ -39,12 +39,12 @@ class ModelWrapper:
             return probs.cpu().numpy()
 
 def load_xception_model():
-    """Load Xception GOC model (timm xception)"""
+    """Load Xception (base) model from timm library"""
     try:
         import timm
     except ImportError:
         raise ImportError(
-            "timm is required to load Xception GOC model. "
+            "timm is required to load Xception (base) model. "
             "Install it with: pip install timm"
         )
     
@@ -98,7 +98,7 @@ def load_efficientnet_model():
     return ModelWrapper(model, transform)
 
 def load_xception_eca_model():
-    """Load XceptionECA model with attention"""
+    """Load MiniXception ECA model with attention"""
     from models.custom_xception import XceptionECA
     
     model_path = Path(__file__).resolve().parent / "models" / "best_xception_eca.pth"
@@ -139,9 +139,9 @@ def get_all_models():
     models = {}
     try:
         models['xception'] = load_xception_model()
-        print("✓ Loaded Xception GOC model")
+        print("✓ Loaded Xception (base) model")
     except Exception as e:
-        print(f"✗ Failed to load Xception GOC: {e}")
+        print(f"✗ Failed to load Xception (base): {e}")
     
     try:
         models['minixception'] = load_minixception_model()
@@ -151,9 +151,9 @@ def get_all_models():
     
     try:
         models['xception_eca'] = load_xception_eca_model()
-        print("✓ Loaded XceptionECA model")
+        print("✓ Loaded MiniXception ECA model")
     except Exception as e:
-        print(f"✗ Failed to load XceptionECA: {e}")
+        print(f"✗ Failed to load MiniXception ECA: {e}")
     
     try:
         models['efficientnet'] = load_efficientnet_model()
